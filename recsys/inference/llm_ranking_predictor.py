@@ -4,9 +4,6 @@ from langchain_openai import ChatOpenAI
 
 class Predict(object):
     def __init__(self):
-        # todo get from secrets api
-        self.openai_api_key = "OPENAI_API_KEY"
-
         self.input_variables = ["age", "month_sin", "month_cos", "product_type_name", "product_group_name",
                                 "graphical_appearance_name", "colour_group_name", "perceived_colour_value_name",
                                 "perceived_colour_master_name", "department_name", "index_name", "index_group_name",
@@ -17,8 +14,9 @@ class Predict(object):
         logging.info(f"✅ Inputs: {inputs}")
 
         # Extract ranking features and article IDs from the inputs
-        features = inputs[0].pop("ranking_features")
-        article_ids = inputs[0].pop("article_ids")
+        # limit to 20 candidates because of OPENAI token requests limitations
+        features = inputs[0].pop("ranking_features")[:20]
+        article_ids = inputs[0].pop("article_ids")[:20]
 
         # Preprocess features for OpenAI model input
         preprocessed_features = self._preprocess_features(features)
@@ -90,11 +88,11 @@ class Predict(object):
             Based on the features provided, predict the probability that the customer will purchase this product to 4-decimals precision. Provide the output in the following format:
             Probability: 
         """
-
+        # todo get from secrets api
         model = ChatOpenAI(
             model_name='gpt-4o-mini-2024-07-18',
             temperature=0.7,
-            openai_api_key=self.openai_api_key,
+            openai_api_key="OPENAI_API_KEY",
         )
         prompt = PromptTemplate(
             input_variables=self.input_variables,

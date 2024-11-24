@@ -27,5 +27,8 @@ create-embeddings:
 create-deployments:
 	uv run ipython notebooks/5_ip_creating_deployments.ipynb
 
+deploy-llm-predictor:
+	uv run ipython notebooks/7_ip_creating_llm_ranking_deployment.ipynb
+
 schedule-materialization-jobs:
 	uv run ipython notebooks/6_scheduling_materialization_jobs.ipynb
