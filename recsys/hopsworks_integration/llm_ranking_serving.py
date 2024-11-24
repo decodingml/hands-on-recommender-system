@@ -6,20 +6,24 @@ from recsys.config import settings
 
 
 class HopsworksLLMRankingModel:
-    deployment_name = "ranking"
+    deployment_name = "llmranking"
 
-    def __init__(self, model):
-        self._model = model
+    @classmethod
+    def register(cls, mr):
+        local_model_path = str(settings.RECSYS_DIR / "inference" / "llm_ranking_predictor.py")
+        ranking_model = mr.python.create_model(
+            name="llm_ranking_model",
+            description="LLM Ranking model that scores item candidates",
+        )
+        ranking_model.save(local_model_path)
 
     @classmethod
     def deploy(cls, project):
         mr = project.get_model_registry()
         dataset_api = project.get_dataset_api()
 
-        ranking_model = mr.get_best_model(
-            name="ranking_model",
-            metric="fscore",
-            direction="max",
+        ranking_model = mr.get_model(
+            name="llm_ranking_model"
         )
 
         # Copy transformer file into Hopsworks File System
@@ -63,7 +67,7 @@ class HopsworksLLMRankingModel:
                         "GPT 4",
             script_file=predictor_script_path,
             resources={"num_instances": 0},
-            transformer=ranking_transformer,
+            transformer=ranking_transformer
         )
 
         return ranking_deployment

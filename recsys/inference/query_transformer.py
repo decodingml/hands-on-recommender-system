@@ -25,6 +25,7 @@ class Transformer(object):
         self.ranking_fv.init_batch_scoring(1)
 
         # Retrieve the ranking deployment
+        # todo retrieve from secrets ranking or llmranking according to ranker used
         self.ranking_server = ms.get_deployment("ranking")
 
     def preprocess(self, inputs):

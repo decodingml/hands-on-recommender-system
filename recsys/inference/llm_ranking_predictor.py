@@ -1,14 +1,11 @@
 import logging
-
 from langchain import PromptTemplate, LLMChain
 from langchain_openai import ChatOpenAI
 
-from recsys.config import settings
-
-
-class LLMPredict(object):
+class Predict(object):
     def __init__(self):
-        self.openai_api_key = settings.OPENAI_API_KEY
+        # todo get from secrets api
+        self.openai_api_key = "OPENAI_API_KEY"
 
         self.input_variables = ["age", "month_sin", "month_cos", "product_type_name", "product_group_name",
                                 "graphical_appearance_name", "colour_group_name", "perceived_colour_value_name",
