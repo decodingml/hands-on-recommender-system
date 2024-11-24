@@ -14,12 +14,40 @@ def get_feature_store():
         project = hopsworks.login(
             api_key_value=settings.HOPSWORKS_API_KEY.get_secret_value()
         )
+        _init_secrets()
     else:
         logger.info("Login to Hopsworks using cached API key.")
         project = hopsworks.login()
-
     return project, project.get_feature_store()
 
+
+def get_secrets_api():
+    connection = hopsworks.connection(host="c.app.hopsworks.ai",
+                                      hostname_verification=False,
+                                      port=443,
+                                      api_key_value=settings.HOPSWORKS_API_KEY.get_secret_value()
+                                      )
+    return connection.get_secrets_api()
+
+
+def _init_secrets():
+    secrets_api = get_secrets_api()
+    secrets = secrets_api.get_secrets()
+    existing_secret_keys = [secret.name for secret in secrets]
+    # Create the OPENAI_API_KEY secret if it doesn't exist
+    if "OPENAI_API_KEY" not in existing_secret_keys:
+        secrets_api.create_secret(
+            "OPENAI_API_KEY",
+            settings.OPENAI_API_KEY.get_secret_value(),
+            project="recommandersystem"
+        )
+    # Create the RANKING_MODEL_TYPE secret if it doesn't exist
+    if "RANKING_MODEL_TYPE" not in existing_secret_keys:
+        secrets_api.create_secret(
+            "RANKING_MODEL_TYPE",
+            settings.RANKING_MODEL_TYPE,
+            project="recommandersystem"
+        )
 
 ########################
 #### Feature Groups ####
@@ -43,10 +71,10 @@ def create_customers_feature_group(fs, df: pd.DataFrame, online_enabled: bool = 
 
 
 def create_articles_feature_group(
-    fs,
-    df: pd.DataFrame,
-    articles_description_embedding_dim: int,
-    online_enabled: bool = True,
+        fs,
+        df: pd.DataFrame,
+        articles_description_embedding_dim: int,
+        online_enabled: bool = True,
 ):
     # Create the Embedding Index for the articles description embedding.
     emb = embedding.EmbeddingIndex()
@@ -67,7 +95,7 @@ def create_articles_feature_group(
 
 
 def create_transactions_feature_group(
-    fs, df: pd.DataFrame, online_enabled: bool = True
+        fs, df: pd.DataFrame, online_enabled: bool = True
 ):
     trans_fg = fs.get_or_create_feature_group(
         name="transactions",
@@ -87,7 +115,7 @@ def create_transactions_feature_group(
 
 
 def create_interactions_feature_group(
-    fs, df: pd.DataFrame, online_enabled: bool = True
+        fs, df: pd.DataFrame, online_enabled: bool = True
 ):
     interactions_fg = fs.get_or_create_feature_group(
         name="interactions",
@@ -129,7 +157,7 @@ def create_ranking_feature_group(
 
 
 def create_candidate_embeddings_feature_group(
-    fs, df: pd.DataFrame, online_enabled: bool = True
+        fs, df: pd.DataFrame, online_enabled: bool = True
 ):
     embedding_index = embedding.EmbeddingIndex()
 
