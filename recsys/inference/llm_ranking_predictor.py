@@ -1,61 +1,12 @@
 import logging
 from langchain import PromptTemplate, LLMChain
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, ValidationError, Field
 
-class Predict(object):
-    def __init__(self):
-        self.input_variables = ["age", "month_sin", "month_cos", "product_type_name", "product_group_name",
-                                "graphical_appearance_name", "colour_group_name", "perceived_colour_value_name",
-                                "perceived_colour_master_name", "department_name", "index_name", "index_group_name",
-                                "section_name", "garment_group_name"]
-        self.llm = self._build_lang_chain()
+class OutputValidator(BaseModel):
+    score: float = Field(..., ge=0.0, le=1.0)  # Ensure the score is between 0 and 1
 
-    def predict(self, inputs):
-        logging.info(f"✅ Inputs: {inputs}")
-
-        # Extract ranking features and article IDs from the inputs
-        # limit to 20 candidates because of OPENAI token requests limitations
-        features = inputs[0].pop("ranking_features")[:20]
-        article_ids = inputs[0].pop("article_ids")[:20]
-
-        # Preprocess features for OpenAI model input
-        preprocessed_features = self._preprocess_features(features)
-        logging.info(f"predict -> Preprocessed features: {preprocessed_features}")
-        logging.info(f"Article IDs: {article_ids}")
-
-        logging.info(f"🦅 Predicting with OpenAI model for {len(features)} instances")
-
-        scores = []
-        for feature in preprocessed_features:
-            langchain_output = self.llm.invoke(feature)
-            scores.append(self._postprocess_output(langchain_output))
-
-        logging.info(f"LLM Scores: {scores}")
-
-        return {
-            "scores": scores,
-            "article_ids": article_ids,
-        }
-
-    def _postprocess_output(self, output):
-        return float(output['text'].split(':')[1].strip())
-
-    def _preprocess_features(self, features):
-        """
-        Convert ranking features into a natural language description
-        suitable for OpenAI model input.
-        """
-        preprocessed = []
-        for feature_set in features:
-            # Example: Create a descriptive string for each feature set
-            query_parameters = {}
-            for key, value in zip(self.input_variables, feature_set):
-                query_parameters[key] = value
-            preprocessed.append(query_parameters)
-        return preprocessed
-
-    def _build_lang_chain(self):
-        template = """
+PROMPT_TEMPLATE = """
             You are a helpful assistant specialized in predicting customer behavior. Your task is to analyze the features of a product and predict the probability of it being purchased by a customer.
 
             ### Instructions:
@@ -65,7 +16,7 @@ class Predict(object):
                - Categorical features: These describe qualitative aspects, like product category, color, and material.
             3. Your response should only include the probability of purchase for the positive class (e.g., likelihood of being purchased), as a value between 0 and 1.
 
-            ### Product Features:
+            ### Product and User Features:
             Numeric features:
             - Age: {age}
             - Month Sin: {month_sin}
@@ -88,15 +39,90 @@ class Predict(object):
             Based on the features provided, predict the probability that the customer will purchase this product to 4-decimals precision. Provide the output in the following format:
             Probability: 
         """
+
+class Predict(object):
+    def __init__(self):
+        self.input_variables = ["age", "month_sin", "month_cos", "product_type_name", "product_group_name",
+                                "graphical_appearance_name", "colour_group_name", "perceived_colour_value_name",
+                                "perceived_colour_master_name", "department_name", "index_name", "index_group_name",
+                                "section_name", "garment_group_name"]
+        self.llm = self._build_lang_chain()
+
+    def predict(self, inputs):
+        logging.info(f"✅ Inputs: {inputs}")
+
+        # Extract ranking features and article IDs from the inputs
+        # limit to 20 candidates because of OPENAI token requests limitations
+        features = inputs[0].pop("ranking_features")[:20]
+        article_ids = inputs[0].pop("article_ids")[:20]
+
+        # Preprocess features for OpenAI model input
+        preprocessed_features_candidates = self._preprocess_features(features)
+        logging.info(f"predict -> Preprocessed features: { preprocessed_features_candidates}")
+        logging.info(f"Article IDs: {article_ids}")
+
+        logging.info(f"🦅 Predicting with OpenAI model for {len(features)} instances")
+
+        scores = []
+        for candidate in preprocessed_features_candidates:
+            try:
+                langchain_output = self.llm.invoke(candidate)
+                score = self._postprocess_output(langchain_output)
+            except Exception as exception:
+                logging.error(exception)
+                # Add minimum default score in case of error
+                score = 0
+            scores.append(score)
+
+        logging.info(f"LLM Scores: {scores}")
+
+        return {
+            "scores": scores,
+            "article_ids": article_ids,
+        }
+
+    def _preprocess_features(self, features):
+        """
+        Convert ranking features into a natural language description
+        suitable for OpenAI model input.
+        """
+        preprocessed = []
+        for feature_set in features:
+            # Example: Create a descriptive string for each feature set
+            query_parameters = {}
+            for key, value in zip(self.input_variables, feature_set):
+                query_parameters[key] = value
+            preprocessed.append(query_parameters)
+        return preprocessed
+
+    def _postprocess_output(self, output):
+        """
+            Extract and validate the output score from the model's response.
+            """
+        try:
+            # Extract the float value from the output
+            score = float(output['text'].split(':')[1].strip())
+
+            # Validate the score using Pydantic
+            validated_output = OutputValidator(score=score)
+            return validated_output.score
+
+        except (ValueError, IndexError, ValidationError) as e:
+            # Log the error and return a fallback value (e.g., minimum score of 0.0)
+            logging.error(f"Error processing output: {e}")
+            return 0.0
+
+    def _build_lang_chain(self):
+
         # todo get from secrets api
         model = ChatOpenAI(
             model_name='gpt-4o-mini-2024-07-18',
             temperature=0.7,
-            openai_api_key="OPENAI_API_KEY",
+            openai_api_key="OPENAI_KEY",
         )
         prompt = PromptTemplate(
             input_variables=self.input_variables,
-            template=template,
+            template=PROMPT_TEMPLATE,
         )
         langchain = LLMChain(
             llm=model,
