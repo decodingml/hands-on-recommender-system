@@ -1,10 +1,25 @@
 import logging
-from langchain import PromptTemplate, LLMChain
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, ValidationError, Field
+
 import hopsworks
-class OutputValidator(BaseModel):
-    score: float = Field(..., ge=0.0, le=1.0)  # Ensure the score is between 0 and 1
+from langchain import PromptTemplate, LLMChain
+from langchain_core.output_parsers import BaseOutputParser
+from langchain_openai import ChatOpenAI
+
+
+class ScoreOutputParser(BaseOutputParser[float]):
+    def parse(self, output) -> float:
+        text = output['text']
+        # Extract the numeric part after "Probability:"
+        if "Probability:" not in text:
+            raise ValueError("Text does not contain 'Probability:' label.")
+        probability_str = text.split("Probability:")[1].strip()
+        probability = float(probability_str)
+
+        # Ensure the probability is in the valid range [0, 1]
+        if not (0.0 <= probability <= 1.0):
+            raise ValueError("Probability value must be between 0 and 1.")
+
+        return probability
 
 PROMPT_TEMPLATE = """
             You are a helpful assistant specialized in predicting customer behavior. Your task is to analyze the features of a product and predict the probability of it being purchased by a customer.
@@ -40,6 +55,7 @@ PROMPT_TEMPLATE = """
             Probability: 
         """
 
+
 class Predict(object):
     def __init__(self):
         self.input_variables = ["age", "month_sin", "month_cos", "product_type_name", "product_group_name",
@@ -49,6 +65,7 @@ class Predict(object):
         # todo get it using _retrieve_secrets after update of hopsworks lib is done
         self.openai_api_key = "OPENAI_API_KEY"
         self.llm = self._build_lang_chain()
+        self.parser = ScoreOutputParser()
 
     def _retrieve_secrets(self):
         secrets_api = hopsworks.connection().get_secrets_api()
@@ -64,7 +81,7 @@ class Predict(object):
 
         # Preprocess features for OpenAI model input
         preprocessed_features_candidates = self._preprocess_features(features)
-        logging.info(f"predict -> Preprocessed features: { preprocessed_features_candidates}")
+        logging.info(f"predict -> Preprocessed features: {preprocessed_features_candidates}")
         logging.info(f"Article IDs: {article_ids}")
 
         logging.info(f"🦅 Predicting with OpenAI model for {len(features)} instances")
@@ -72,8 +89,8 @@ class Predict(object):
         scores = []
         for candidate in preprocessed_features_candidates:
             try:
-                langchain_output = self.llm.invoke(candidate)
-                score = self._postprocess_output(langchain_output)
+                text = self.llm.invoke(candidate)
+                score = self.parser.parse(text)
             except Exception as exception:
                 logging.error(exception)
                 # Add minimum default score in case of error
@@ -101,25 +118,7 @@ class Predict(object):
             preprocessed.append(query_parameters)
         return preprocessed
 
-    def _postprocess_output(self, output):
-        """
-            Extract and validate the output score from the model's response.
-            """
-        try:
-            # Extract the float value from the output
-            score = float(output['text'].split(':')[1].strip())
-
-            # Validate the score using Pydantic
-            validated_output = OutputValidator(score=score)
-            return validated_output.score
-
-        except (ValueError, IndexError, ValidationError) as e:
-            # Log the error and return a fallback value (e.g., minimum score of 0.0)
-            logging.error(f"Error processing output: {e}")
-            return 0.0
-
     def _build_lang_chain(self):
-
         model = ChatOpenAI(
             model_name='gpt-4o-mini-2024-07-18',
             temperature=0.7,
