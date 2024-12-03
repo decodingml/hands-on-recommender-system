@@ -1,7 +1,7 @@
 import os
+import hopsworks
 
 from hsml.transformer import Transformer
-
 from recsys.config import settings
 
 
@@ -18,7 +18,13 @@ class HopsworksLLMRankingModel:
         ranking_model.save(local_model_path)
 
     @classmethod
-    def deploy(cls, project):
+    def deploy(cls):
+        # Prepare secrets used in the deployment
+        cls._prepare_secrets()
+
+        project = hopsworks.login()
+        # todo call prep environment once hopsworks upgrade
+        # cls._prepare_environment(project)
         mr = project.get_model_registry()
         dataset_api = project.get_dataset_api()
 
@@ -67,7 +73,54 @@ class HopsworksLLMRankingModel:
                         "GPT 4",
             script_file=predictor_script_path,
             resources={"num_instances": 0},
-            transformer=ranking_transformer
+            transformer=ranking_transformer,
+            environment=settings.CUSTOM_HOPSWORKS_INFERENCE_ENV
         )
 
         return ranking_deployment
+
+    @classmethod
+    def _prepare_environment(cls, project):
+        # Upload requirements file to Hopsworks
+        dataset_api = project.get_dataset_api()
+
+        requirements_path = dataset_api.upload(
+            str(settings.RECSYS_DIR / "hopsworks_integration" / "llm_ranker" / "requirements.txt"),
+            "Resources",
+            overwrite=True,
+        )
+
+        # Check if custom env exists, if not create it
+        env_api = project.get_environment_api()
+        envs = env_api.get_environments()
+        existing_envs = [env.name for env in envs]
+        if settings.CUSTOM_HOPSWORKS_INFERENCE_ENV in existing_envs:
+            env = env_api.get_environment(settings.CUSTOM_HOPSWORKS_INFERENCE_ENV)
+        else:
+            env = env_api.create_environment(name=settings.CUSTOM_HOPSWORKS_INFERENCE_ENV)
+
+        # Install the extra requirements in the Python environment on Hopsworks
+        env.install_requirements(requirements_path)
+
+    @classmethod
+    def _prepare_secrets(cls):
+        connection = hopsworks.connection(host="c.app.hopsworks.ai",
+                                          hostname_verification=False,
+                                          port=443,
+                                          api_key_value=settings.HOPSWORKS_API_KEY.get_secret_value()
+                                          )
+        if not settings.OPENAI_API_KEY:
+            raise ValueError(
+                "Missing required secret: 'OPENAI_API_KEY'. Please ensure it is set in the .env file or config.py "
+                "settings.")
+
+        secrets_api = connection.get_secrets_api()
+        secrets = secrets_api.get_secrets()
+        existing_secret_keys = [secret.name for secret in secrets]
+        # Create the OPENAI_API_KEY secret if it doesn't exist
+        if "OPENAI_API_KEY" not in existing_secret_keys:
+            secrets_api.create_secret(
+                "OPENAI_API_KEY",
+                settings.OPENAI_API_KEY.get_secret_value(),
+                project=settings.HOPSWORKS_PROJECT
+            )

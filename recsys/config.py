@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     RANKING_EARLY_STOPPING_ROUNDS: int = 5
 
     # Inference
-    RANKING_MODEL_TYPE: str = "llmranking"
+    RANKING_MODEL_TYPE: str = "ranking"
+    CUSTOM_HOPSWORKS_INFERENCE_ENV: str = "custom-env-name"
 
 
 settings = Settings()
