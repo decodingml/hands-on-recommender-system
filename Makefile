@@ -10,7 +10,7 @@ start-ui:
 clean-hopsworks-resources:
 	uv run python tools/clean_hopsworks_resources.py
 
-all: feature-engineering train-retrieval train-ranking create-embeddings create-deployments schedule-materialization-jobs
+all: feature-engineering train-retrieval train-ranking create-embeddings create-deployments deploy-llm-predictor schedule-materialization-jobs
 
 feature-engineering:
 	uv run ipython notebooks/1_fp_computing_features.ipynb
