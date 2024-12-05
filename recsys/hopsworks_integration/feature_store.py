@@ -17,7 +17,6 @@ def get_feature_store():
     else:
         logger.info("Login to Hopsworks using cached API key.")
         project = hopsworks.login()
-
     return project, project.get_feature_store()
 
 
@@ -43,10 +42,10 @@ def create_customers_feature_group(fs, df: pd.DataFrame, online_enabled: bool = 
 
 
 def create_articles_feature_group(
-    fs,
-    df: pd.DataFrame,
-    articles_description_embedding_dim: int,
-    online_enabled: bool = True,
+        fs,
+        df: pd.DataFrame,
+        articles_description_embedding_dim: int,
+        online_enabled: bool = True,
 ):
     # Create the Embedding Index for the articles description embedding.
     emb = embedding.EmbeddingIndex()
@@ -67,7 +66,7 @@ def create_articles_feature_group(
 
 
 def create_transactions_feature_group(
-    fs, df: pd.DataFrame, online_enabled: bool = True
+        fs, df: pd.DataFrame, online_enabled: bool = True
 ):
     trans_fg = fs.get_or_create_feature_group(
         name="transactions",
@@ -87,7 +86,7 @@ def create_transactions_feature_group(
 
 
 def create_interactions_feature_group(
-    fs, df: pd.DataFrame, online_enabled: bool = True
+        fs, df: pd.DataFrame, online_enabled: bool = True
 ):
     interactions_fg = fs.get_or_create_feature_group(
         name="interactions",
@@ -129,7 +128,7 @@ def create_ranking_feature_group(
 
 
 def create_candidate_embeddings_feature_group(
-    fs, df: pd.DataFrame, online_enabled: bool = True
+        fs, df: pd.DataFrame, online_enabled: bool = True
 ):
     embedding_index = embedding.EmbeddingIndex()
 
