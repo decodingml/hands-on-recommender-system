@@ -42,5 +42,9 @@ class Settings(BaseSettings):
     RANKING_SCALE_POS_WEIGHT: int = 10
     RANKING_EARLY_STOPPING_ROUNDS: int = 5
 
+    # Inference
+    RANKING_MODEL_TYPE: str = "ranking"
+    CUSTOM_HOPSWORKS_INFERENCE_ENV: str = "custom-env-name"
+
 
 settings = Settings()
