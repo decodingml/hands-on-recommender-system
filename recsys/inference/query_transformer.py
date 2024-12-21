@@ -1,9 +1,9 @@
+import logging
 from datetime import datetime
 
 import hopsworks
-import numpy as np
-
 import nest_asyncio
+
 nest_asyncio.apply()
 import pandas as pd
 
@@ -12,6 +12,8 @@ class Transformer(object):
         # Connect to the Hopsworks
         project = hopsworks.login()
         ms = project.get_model_serving()
+
+        self._retrieve_secrets()
 
         # Retrieve the 'customers' feature view
         fs = project.get_feature_store()
@@ -25,7 +27,16 @@ class Transformer(object):
         self.ranking_fv.init_batch_scoring(1)
 
         # Retrieve the ranking deployment
-        self.ranking_server = ms.get_deployment("ranking")
+        self.ranking_server = ms.get_deployment(self.ranking_model_type)
+
+    def _retrieve_secrets(self):
+        secrets_api = hopsworks.connection().get_secrets_api()
+        try:
+            self.ranking_model_type = secrets_api.get_secret("RANKING_MODEL_TYPE").value
+        except Exception as e:
+            logging.error(e)
+            logging.error("Could not retrieve secret RANKING_MODEL_TYPE, defaulting to ranker")
+            self.ranking_model_type = "ranking"
 
     def preprocess(self, inputs):
         # Check if the input data contains a key named "instances"

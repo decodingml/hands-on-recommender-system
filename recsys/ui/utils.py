@@ -6,7 +6,7 @@ import streamlit as st
 from PIL import Image, UnidentifiedImageError
 
 from recsys import hopsworks_integration
-
+from recsys.config import settings
 
 def print_header(text, font_size=22):
     res = f'<span style="font-size: {font_size}px;">{text}</span>'
@@ -47,8 +47,9 @@ def get_deployments():
     query_model_deployment = ms.get_deployment(
         hopsworks_integration.two_tower_serving.HopsworksQueryModel.deployment_name
     )
+
     ranking_deployment = ms.get_deployment(
-        hopsworks_integration.ranking_serving.HopsworksRankingModel.deployment_name
+        settings.RANKING_MODEL_TYPE
     )
 
     ranking_deployment.start(await_running=180)

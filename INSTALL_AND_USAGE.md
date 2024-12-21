@@ -78,6 +78,7 @@ This runs the following steps:
 4. Candidate embeddings creation
 5. Inference pipeline deployment
 6. Materialization job scheduling
+7. Inference pipeline for LLM Ranking Predictor
 
 ## Running Individual Components
 
@@ -125,12 +126,29 @@ Each component can be run separately:
    ```
    View results in [Hopsworks Serverless](https://rebrand.ly/serverless-github): **Compute → Ingestions**
 
+7. **Deploy LLM Predictor**
+   ```bash
+   make deploy-llm-predictor
+   ```
+   View results in [Hopsworks Serverless](https://rebrand.ly/serverless-github): **Compute → Ingestions**
+
+deploy-llm-predictor
+
 ## 🚨 Important Notes
 - All notebooks are executed using IPython through the UV virtual environment
 - Components should be run in the specified order when executing individually
 - Ensure UV is properly installed and configured before running any commands
 
 # 🛠️ Additional Operations
+
+## LLM Ranking Deployment
+If you want to use the LLM Ranker instead of the trained ranker, make sure to have the right custom environment configured in Hopsworks, on which you should install langchain and langchain-openai.
+In order to configure it, follow the next steps:
+1. In Hopsworks, go to Project Settings -> Python Environments
+2. Choose an environemnt from the Inference Pipeline, for example pandas-inference-pipeline and select it
+3. Clone Env -> Choose a suitable name for the custom env -> Create -> Select the new environment
+4.  Install Libraries -> With 'Pip' and 'Search' selected -> Find by name 'langchain' -> Choose from dropdown 0.2.6 version -> Press +
+5. Install Libraries -> With 'Pip' and 'Name/version' selected -> Library name = 'langchain-openai' and version = '0.1.14' -> Install
 
 ## Launch Frontend Application
 Start the Streamlit UI that interfaces with [Hopsworks](https://rebrand.ly/serverless-github):
